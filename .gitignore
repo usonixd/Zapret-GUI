@@ -1,0 +1,20 @@
+# Compiled binaries and build output
+*.exe
+*.dll
+*.sys
+*.log
+*.test
+*.out
+/dist/
+/build/
+/tmp/
+
+# Go tooling / editor files
+.vscode/
+.idea/
+.DS_Store
+
+# Sensitive/local runtime data (not project sources)
+settings.json
+reports/
+core_backup_*/

@@ -1,0 +1,56 @@
+name: Build and publish v0.7 beta
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        shell: pwsh
+        run: go test ./...
+
+      - name: Build Windows EXE
+        shell: pwsh
+        run: |
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          $env:CGO_ENABLED = '0'
+          go build -trimpath -ldflags '-H=windowsgui -s -w' -o ZapretDesk-v0.7.exe .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Create ZIP with notices
+        shell: pwsh
+        run: |
+          New-Item -Path dist -ItemType Directory -Force | Out-Null
+          Copy-Item ZapretDesk-v0.7.exe dist/
+          Copy-Item THIRD_PARTY_NOTICES.md dist/
+          Copy-Item LICENSES/Flowseal-MIT.txt dist/
+          Copy-Item LICENSES/WinDivert.txt dist/
+          Compress-Archive -Path dist/* -DestinationPath ZapretDesk-v0.7-beta.zip -Force
+          Get-FileHash ZapretDesk-v0.7.exe -Algorithm SHA256 | Format-List
+
+      - name: Publish pre-release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.7-beta --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create v0.7-beta --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Zapret Desk v0.7 beta" --notes "Первый тестовый релиз графической оболочки Zapret Desk. Ядро и стратегии: Flowseal 1.10.4. Тестовая версия для Windows 10/11 x64." --prerelease
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          gh release upload v0.7-beta ZapretDesk-v0.7.exe ZapretDesk-v0.7-beta.zip --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
